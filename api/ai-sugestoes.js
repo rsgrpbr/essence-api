@@ -1,108 +1,29 @@
-export default async function handler(req, res) {
-  // CORS headers
+export default function handler(req, res) {
+  // Enable CORS
+  res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
 
-  // Handle preflight
   if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+    res.status(200).end();
+    return;
   }
 
-  // Handle GET for testing
   if (req.method === 'GET') {
     return res.status(200).json({ 
-      message: 'API funcionando! Use POST para consultas.',
-      status: 'online'
+      message: 'API da Essence funcionando!',
+      status: 'online',
+      endpoint: '/api/ai-sugestoes'
     });
   }
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Apenas POST permitido' });
+  if (req.method === 'POST') {
+    return res.status(200).json({ 
+      message: 'POST recebido com sucesso!',
+      body: req.body
+    });
   }
 
-  try {
-    const { Anthropic } = await import('@anthropic-ai/sdk');
-    
-    const anthropic = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
-    });
-
-    const { sentimento, oleos } = req.body;
-
-    if (!sentimento?.trim()) {
-      return res.status(400).json({ error: 'Sentimento obrigatorio' });
-    }
-
-    if (!oleos || oleos.length === 0) {
-      return res.status(400).json({ error: 'Lista de oleos obrigatoria' });
-    }
-
-    const prompt = `Voce e um especialista em psicoaromaterapia.
-
-SITUACAO: O usuario se sente "${sentimento}"
-
-OLEOS DISPONIVEIS:
-${oleos.map((oleo, i) => `
-${i + 1}. ${oleo.nome} (slug: ${oleo.slug}):
-   Descricao: ${oleo.psico_texto_principal}
-   Emocoes que trata: ${JSON.stringify(oleo.psico_emocoes_negativas)}
-   Propriedades positivas: ${JSON.stringify(oleo.psico_propriedades_positivas)}
-`).join('\n')}
-
-TAREFA:
-1. Analise o sentimento profundamente
-2. Sugira os 3 MELHORES oleos para ajudar
-3. Explique POR QUE cada um ajuda especificamente
-
-RESPONDA EXATAMENTE NESTE JSON:
-{
-  "sentimento_detectado": "nome da categoria emocional detectada",
-  "sugestoes": [
-    {
-      "slug": "slug-exato-do-oleo",
-      "nome": "Nome exato do oleo",
-      "beneficios": "Explicacao clara de como este oleo especifico ajuda esta situacao",
-      "compatibilidade": 95
-    }
-  ]
+  res.status(405).json({ error: 'Method not allowed' });
 }
-
-IMPORTANTE: Use APENAS oleos da lista. Use slugs EXATOS. Maximo 3 sugestoes.`;
-
-    const response = await anthropic.messages.create({
-      model: "claude-3-haiku-20240307",
-      max_tokens: 1000,
-      temperature: 0.3,
-      messages: [{ role: "user", content: prompt }],
-    });
-
-    const content = response.content[0];
-    if (content.type !== 'text') {
-      throw new Error('Resposta inesperada da IA');
-    }
-
-    const resultado = JSON.parse(content.text);
-    return res.status(200).json(resultado);
-
-  } catch (error) {
-    console.error('Erro:', error);
-    return res.status(500).json({ 
-      error: 'Erro interno do servidor',
-      details: error.message
-    });
-  }
-}
-```
-
-5. **Commit changes:** "Fix API endpoint"
-
----
-
-## ⏳ **AGUARDAR REDEPLOY AUTOMÁTICO**
-
-O Vercel vai fazer redeploy automático. Aguarde 1-2 minutos.
-
-**Depois teste:**
-```
-https://essence-api-xrz6.vercel.app/api/ai-sugestoes
