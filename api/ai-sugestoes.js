@@ -1,13 +1,11 @@
 export default async function handler(req, res) {
-  // CORS Headers - permitir domínio específico
-  res.setHeader('Access-Control-Allow-Credentials', true);
-  res.setHeader('Access-Control-Allow-Origin', 'https://www.essenceapp.com.br');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
+  // CORS Headers mais simples e funcionais
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
+    return res.status(200).end();
   }
 
   if (req.method === 'GET') {
@@ -23,7 +21,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Importar Anthropic dinamicamente
     const { Anthropic } = await import('@anthropic-ai/sdk');
     
     const anthropic = new Anthropic({
@@ -40,56 +37,33 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Lista de oleos obrigatoria' });
     }
 
-    const prompt = `Voce e um DETECTOR INTELIGENTE que decide entre sintomas fisicos ou psicoaromaterapia.
+    const prompt = `Voce e um DETECTOR que decide entre sintomas fisicos ou psicoaromaterapia.
 
 ENTRADA: "${sentimento}"
 
-REGRA FUNDAMENTAL:
-Se a mensagem menciona SOMENTE dores corporais/sintomas fisicos SEM palavras emocionais, retorne tipo "sintoma_fisico".
-
-EXEMPLOS DE SINTOMA FISICO (sem emocao):
-- "dor de cabeca"
-- "febre"  
-- "gripe"
-- "dor nas costas"
-- "nausea"
-- "tosse"
-
-EXEMPLOS DE PSICOAROMATERAPIA (com emocao):
-- "ansioso"
-- "estressado" 
-- "dor de cabeca por estresse"
-- "me sinto..."
-- "preocupado"
-- "nervoso"
-
-SE APENAS SINTOMA FISICO, RESPONDA:
+SE APENAS SINTOMA FISICO (dor cabeca, febre, gripe, dor costas) SEM emocao, RESPONDA:
 {
-  "tipo": "sintoma_fisico", 
+  "tipo": "sintoma_fisico",
   "mensagem": "Para sintomas físicos, consulte a seção 'Óleos' do app onde pode buscar por categorias específicas.",
   "sugestao": "Explore nossa biblioteca completa de óleos essenciais para encontrar soluções naturais."
 }
 
-SE CONTEM EMOCAO, RESPONDA:
+SE CONTEM EMOCAO (ansioso, estressado, me sinto, nervoso), RESPONDA:
 {
   "tipo": "psicoaromaterapia",
   "sentimento_detectado": "categoria emocional",
   "sugestoes": [
     {
       "slug": "slug-do-oleo",
-      "nome": "Nome do oleo", 
+      "nome": "Nome do oleo",
       "beneficios": "Como ajuda emocionalmente",
       "compatibilidade": 90
     }
   ]
 }
 
-OLEOS PARA PSICOAROMATERAPIA:
-${oleos.map((oleo, i) => `
-${i + 1}. ${oleo.nome} (${oleo.slug}): ${oleo.psico_texto_principal}
-Emoções: ${JSON.stringify(oleo.psico_emocoes_negativas)}
-`).join('\n')}`;
-}`;
+OLEOS DISPONIVEIS:
+${oleos.map((oleo, i) => `${i + 1}. ${oleo.nome} (${oleo.slug}): ${oleo.psico_texto_principal}`).join('\n')}`;
 
     const response = await anthropic.messages.create({
       model: "claude-3-haiku-20240307",
