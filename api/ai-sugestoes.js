@@ -42,39 +42,46 @@ export default async function handler(req, res) {
 
     const prompt = `Voce e um especialista em psicoaromaterapia.
 
-SITUACAO: O usuario se sente "${sentimento}"
+const prompt = `DETECTOR: Analise se e SINTOMA FISICO puro ou EMOCIONAL.
 
-IMPORTANTE - ANALISE PRIMEIRO:
-1. Se a mensagem contem APENAS sintomas fisicos (dor de cabeca, febre, gripe, dor nas costas, etc.) SEM mencionar emocoes, responda:
+ENTRADA: "${sentimento}"
+
+REGRA RIGOROSA:
+Se menciona SOMENTE sintomas corporais SEM palavras emocionais:
+- "dor de cabeca" 
+- "febre"
+- "gripe" 
+- "dor nas costas"
+- "nausea"
+
+RESPONDA:
 {
   "tipo": "sintoma_fisico",
-  "mensagem": "Para sintomas físicos, recomendamos consultar nosso guia de óleos por categoria. A psicoaromaterapia foca em bem-estar emocional e mental.",
-  "sugestao_busca": "Experimente buscar por 'dor', 'inflamação' ou 'sistema imunológico' em nossa seção de óleos."
+  "mensagem": "Para sintomas físicos, consulte a seção 'Óleos' do app onde pode buscar por categorias específicas.",
+  "sugestao_busca": "Explore nossa biblioteca de óleos por categoria: dor, sistema imunológico, digestão."
 }
 
-2. Se menciona emocoes OU sentimentos psicologicos (mesmo junto com sintomas), continue a analise normal.
+Se menciona QUALQUER emocao:
+- "ansioso", "estressado", "nervoso"
+- "me sinto", "preocupado", "triste"  
+- "dor de cabeca por estresse"
 
-OLEOS DISPONIVEIS:
-${oleos.map((oleo, i) => `
-${i + 1}. ${oleo.nome} (slug: ${oleo.slug}):
-   Descricao: ${oleo.psico_texto_principal}
-   Emocoes que trata: ${JSON.stringify(oleo.psico_emocoes_negativas)}
-   Propriedades positivas: ${JSON.stringify(oleo.psico_propriedades_positivas)}
-`).join('\n')}
-
-PARA ANALISE EMOCIONAL, RESPONDA:
+RESPONDA:
 {
-  "tipo": "psicoaromaterapia",
+  "tipo": "psicoaromaterapia", 
   "sentimento_detectado": "categoria emocional",
   "sugestoes": [
     {
-      "slug": "slug-exato-do-oleo",
-      "nome": "Nome exato do oleo",
-      "beneficios": "Como este oleo especifico ajuda emocionalmente",
-      "compatibilidade": 95
+      "slug": "slug-do-oleo",
+      "nome": "Nome do oleo",
+      "beneficios": "Como ajuda emocionalmente", 
+      "compatibilidade": 90
     }
   ]
-}`;
+}
+
+OLEOS:
+${oleos.map((oleo, i) => `${i + 1}. ${oleo.nome} (${oleo.slug}): ${oleo.psico_texto_principal}`).join('\n')}`;
 
     const response = await anthropic.messages.create({
       model: "claude-3-haiku-20240307",
