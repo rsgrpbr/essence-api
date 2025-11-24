@@ -1,5 +1,5 @@
 export default async function handler(req, res) {
-  // CORS Headers - permitir domínio específico
+  // CORS Headers
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', 'https://www.essenceapp.com.br');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -39,6 +39,11 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Lista de oleos obrigatoria' });
     }
     
+    // Construir lista de óleos de forma mais segura
+    const oleosTexto = oleos.map((oleo, i) => {
+      return `${i + 1}. ${oleo.nome || 'Nome indefinido'} (${oleo.slug || 'slug'}): ${oleo.psico_texto_principal || 'Descrição não disponível'}`;
+    }).join('\n');
+    
     const prompt = `DETECTOR: Analise se e SINTOMA FISICO puro ou EMOCIONAL.
 
 ENTRADA: "${sentimento}"
@@ -54,7 +59,7 @@ Se menciona SOMENTE sintomas corporais SEM palavras emocionais:
 RESPONDA:
 {
   "tipo": "sintoma_fisico",
-  "mensagem": "Para sintomas físicos, consulte a seção 'Óleos' do app onde pode buscar por categorias específicas.",
+  "mensagem": "Para sintomas físicos, consulte a seção Óleos do app onde pode buscar por categorias específicas.",
   "sugestao_busca": "Explore nossa biblioteca de óleos por categoria: dor, sistema imunológico, digestão."
 }
 
@@ -77,8 +82,8 @@ RESPONDA:
   ]
 }
 
-OLEOS:
-${oleos.map((oleo, i) => `${i + 1}. ${oleo.nome} (${oleo.slug}): ${oleo.psico_texto_principal}`).join('\n')}`;
+OLEOS DISPONIVEIS:
+${oleosTexto}`;
 
     const response = await anthropic.messages.create({
       model: "claude-3-haiku-20240307",
@@ -96,10 +101,11 @@ ${oleos.map((oleo, i) => `${i + 1}. ${oleo.nome} (${oleo.slug}): ${oleo.psico_te
     return res.status(200).json(resultado);
     
   } catch (error) {
-    console.error('Erro:', error);
+    console.error('Erro completo:', error);
     return res.status(500).json({ 
       error: 'Erro interno do servidor',
-      details: error.message
+      details: error.message,
+      stack: error.stack
     });
   }
 }
