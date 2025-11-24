@@ -1,7 +1,7 @@
 export default async function handler(req, res) {
-  // CORS Headers - permitir domínio específico
+  // CORS Headers
   res.setHeader('Access-Control-Allow-Credentials', true);
-  res.setHeader('Access-Control-Allow-Origin', 'https://www.essenceapp.com.br');
+  res.setHeader('Access-Control-Allow-Origin', '[https://www.essenceapp.com.br](https://www.essenceapp.com.br)');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
   res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
 
@@ -13,8 +13,7 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     return res.status(200).json({ 
       message: 'API da Essence funcionando!',
-      status: 'online',
-      version: '1.0'
+      status: 'online'
     });
   }
 
@@ -23,7 +22,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Importar Anthropic dinamicamente
     const { Anthropic } = await import('@anthropic-ai/sdk');
     
     const anthropic = new Anthropic({
@@ -36,51 +34,54 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Sentimento obrigatorio' });
     }
 
-    if (!oleos || oleos.length === 0) {
-      return res.status(400).json({ error: 'Lista de oleos obrigatoria' });
-    }
+    // --- PROMPT DO SISTEMA (REGRAS) ---
+    const systemPrompt = `Você é uma API JSON estrita para um app de Psicoaromaterapia.
+    Sua ÚNICA função é classificar a entrada do usuário e retornar JSON.
 
-    const prompt = `Voce e um especialista em psicoaromaterapia.
+    REGRAS DE CLASSIFICAÇÃO:
+    1. SINTOMAS FÍSICOS (GATILHO DE BLOQUEIO):
+       Se o texto contiver queixas puramente físicas como: "dor de cabeça", "dor na perna", "náusea", "vômito", "enjoo", "febre", "gripe", "ferida", "queimadura".
+       -> Você DEVE retornar o JSON de redirecionamento.
+       -> NÃO tente analisar o emocional por trás de um vômito ou dor aguda.
 
-SITUACAO: O usuario se sente "${sentimento}"
+    2. PSICOAROMATERAPIA (EMOCIONAL):
+       Se o texto contiver: "ansiedade", "tristeza", "medo", "estresse", "cansaço mental", "falta de foco", ou dores com fundo emocional claro (ex: "dor de cabeça de tanto estresse").
+       -> Você deve realizar a análise dos óleos.
 
-IMPORTANTE - ANALISE PRIMEIRO:
-1. Se a mensagem contem APENAS sintomas fisicos (dor de cabeca, febre, gripe, dor nas costas, etc.) SEM mencionar emocoes, responda:
-{
-  "tipo": "sintoma_fisico",
-  "mensagem": "Para sintomas físicos, recomendamos consultar nosso guia de óleos por categoria. A psicoaromaterapia foca em bem-estar emocional e mental.",
-  "sugestao_busca": "Experimente buscar por 'dor', 'inflamação' ou 'sistema imunológico' em nossa seção de óleos."
-}
-
-2. Se menciona emocoes OU sentimentos psicologicos (mesmo junto com sintomas), continue a analise normal.
-
-OLEOS DISPONIVEIS:
-${oleos.map((oleo, i) => `
-${i + 1}. ${oleo.nome} (slug: ${oleo.slug}):
-   Descricao: ${oleo.psico_texto_principal}
-   Emocoes que trata: ${JSON.stringify(oleo.psico_emocoes_negativas)}
-   Propriedades positivas: ${JSON.stringify(oleo.psico_propriedades_positivas)}
-`).join('\n')}
-
-PARA ANALISE EMOCIONAL, RESPONDA:
-{
-  "tipo": "psicoaromaterapia",
-  "sentimento_detectado": "categoria emocional",
-  "sugestoes": [
+    FORMATO DE RESPOSTA OBRIGATÓRIO (JSON PURO SEM MARKDOWN):
+    
+    CASO 1 (FÍSICO):
     {
-      "slug": "slug-exato-do-oleo",
-      "nome": "Nome exato do oleo",
-      "beneficios": "Como este oleo especifico ajuda emocionalmente",
-      "compatibilidade": 95
+      "tipo": "sintoma_fisico",
+      "mensagem": "Identificamos que você está buscando ajuda para sintomas físicos (como dores, náuseas ou inflamações).",
+      "acao": "redirecionar_aba_sintomas",
+      "texto_botao": "Ir para Guia de Sintomas Físicos"
     }
-  ]
-}`;
+
+    CASO 2 (EMOCIONAL):
+    {
+      "tipo": "psicoaromaterapia",
+      "sentimento_detectado": "Resumo curto do sentimento",
+      "sugestoes": [
+         { "slug": "...", "nome": "...", "beneficios": "...", "compatibilidade": 90 }
+      ]
+    }`;
+
+    // --- DADOS PARA O PROMPT DO USUÁRIO ---
+    const userMessage = `
+    CONTEXTO DOS ÓLEOS DISPONÍVEIS NO BANCO:
+    ${oleos.map((oleo) => `${oleo.nome} (${oleo.slug}): ${oleo.psico_texto_principal}`).join(' | ')}
+
+    ENTRADA DO USUÁRIO PARA ANALISAR:
+    "${sentimento}"
+    `;
 
     const response = await anthropic.messages.create({
       model: "claude-3-haiku-20240307",
       max_tokens: 1000,
-      temperature: 0.3,
-      messages: [{ role: "user", content: prompt }],
+      temperature: 0.0, // Temperatura zero para ser mais lógico e menos criativo
+      system: systemPrompt, // Movemos as regras para o sistema
+      messages: [{ role: "user", content: userMessage }],
     });
 
     const content = response.content[0];
@@ -88,7 +89,20 @@ PARA ANALISE EMOCIONAL, RESPONDA:
       throw new Error('Resposta inesperada da IA');
     }
 
-    const resultado = JSON.parse(content.text);
+    // Função de limpeza para garantir que o JSON venha limpo (remove ```json ... ```)
+    const cleanJson = (text) => {
+      return text.replace(/```json\n?|```/g, '').trim();
+    };
+
+    let resultado;
+    try {
+        resultado = JSON.parse(cleanJson(content.text));
+    } catch (e) {
+        console.error("Erro ao fazer parse do JSON da IA:", content.text);
+        // Fallback se a IA falhar no JSON
+        return res.status(500).json({ error: "Erro na formatação da resposta da IA." });
+    }
+
     return res.status(200).json(resultado);
 
   } catch (error) {
