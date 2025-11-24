@@ -1,15 +1,15 @@
 export default async function handler(req, res) {
-  // CORS Headers
+  // CORS Headers - permitir domínio específico
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', 'https://www.essenceapp.com.br');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
   res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
-  
+
   if (req.method === 'OPTIONS') {
     res.status(200).end();
     return;
   }
-  
+
   if (req.method === 'GET') {
     return res.status(200).json({ 
       message: 'API da Essence funcionando!',
@@ -17,81 +17,85 @@ export default async function handler(req, res) {
       version: '1.0'
     });
   }
-  
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Apenas POST permitido' });
   }
-  
+
   try {
-    const { sentimento, oleos } = req.body || {};
+    // Importar Anthropic dinamicamente
+    const { Anthropic } = await import('@anthropic-ai/sdk');
     
+    const anthropic = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+    });
+
+    const { sentimento, oleos } = req.body;
+
     if (!sentimento?.trim()) {
       return res.status(400).json({ error: 'Sentimento obrigatorio' });
     }
-    
-    // DETECÇÃO SIMPLES DE SINTOMAS FÍSICOS
-    const sintomasFisicos = ['dor de cabeca', 'febre', 'gripe', 'dor nas costas', 'nausea', 'tosse', 'dor muscular', 'enxaqueca', 'cefaleia'];
-    const sentimentoLower = sentimento.toLowerCase();
-    
-    // Se contém APENAS sintomas físicos e NÃO contém palavras emocionais
-    const temSintomaFisico = sintomasFisicos.some(sintoma => sentimentoLower.includes(sintoma));
-    const palavrasEmocionais = ['ansioso', 'estressado', 'nervoso', 'preocupado', 'triste', 'me sinto', 'sinto', 'estou'];
-    const temEmocao = palavrasEmocionais.some(emocao => sentimentoLower.includes(emocao));
-    
-    if (temSintomaFisico && !temEmocao) {
-      return res.status(200).json({
-        tipo: "sintoma_fisico",
-        mensagem: "Para sintomas físicos, consulte a seção 'Óleos' do app onde pode buscar por categorias específicas.",
-        sugestao_busca: "Explore nossa biblioteca de óleos por categoria: dor, sistema imunológico, digestão."
-      });
+
+    if (!oleos || oleos.length === 0) {
+      return res.status(400).json({ error: 'Lista de oleos obrigatoria' });
     }
-    
-    // Tentar IA, se falhar usar fallback
-    try {
-      const { Anthropic } = await import('@anthropic-ai/sdk');
-      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-      
-      const prompt = `Analise: "${sentimento}". Responda JSON: {"tipo":"psicoaromaterapia","sentimento_detectado":"categoria","sugestoes":[{"slug":"lavender","nome":"Lavender","beneficios":"Promove calma e relaxamento","compatibilidade":90}]}`;
-      
-      const response = await anthropic.messages.create({
-        model: "claude-3-haiku-20240307",
-        max_tokens: 500,
-        temperature: 0.3,
-        messages: [{ role: "user", content: prompt }]
-      });
-      
-      const resultado = JSON.parse(response.content[0].text);
-      return res.status(200).json(resultado);
-      
-    } catch (aiError) {
-      // FALLBACK GARANTIDO
-      return res.status(200).json({
-        tipo: "psicoaromaterapia",
-        sentimento_detectado: "Bem-estar geral",
-        sugestoes: [
-          {
-            slug: "lavender",
-            nome: "Lavender",
-            beneficios: "Promove calma e relaxamento profundo",
-            compatibilidade: 85
-          }
-        ]
-      });
+
+    const prompt = `Voce e um especialista em psicoaromaterapia.
+
+SITUACAO: O usuario se sente "${sentimento}"
+
+IMPORTANTE - ANALISE PRIMEIRO:
+1. Se a mensagem contem APENAS sintomas fisicos (dor de cabeca, febre, gripe, dor nas costas, etc.) SEM mencionar emocoes, responda:
+{
+  "tipo": "sintoma_fisico",
+  "mensagem": "Para sintomas físicos, recomendamos consultar nosso guia de óleos por categoria. A psicoaromaterapia foca em bem-estar emocional e mental.",
+  "sugestao_busca": "Experimente buscar por 'dor', 'inflamação' ou 'sistema imunológico' em nossa seção de óleos."
+}
+
+2. Se menciona emocoes OU sentimentos psicologicos (mesmo junto com sintomas), continue a analise normal.
+
+OLEOS DISPONIVEIS:
+${oleos.map((oleo, i) => `
+${i + 1}. ${oleo.nome} (slug: ${oleo.slug}):
+   Descricao: ${oleo.psico_texto_principal}
+   Emocoes que trata: ${JSON.stringify(oleo.psico_emocoes_negativas)}
+   Propriedades positivas: ${JSON.stringify(oleo.psico_propriedades_positivas)}
+`).join('\n')}
+
+PARA ANALISE EMOCIONAL, RESPONDA:
+{
+  "tipo": "psicoaromaterapia",
+  "sentimento_detectado": "categoria emocional",
+  "sugestoes": [
+    {
+      "slug": "slug-exato-do-oleo",
+      "nome": "Nome exato do oleo",
+      "beneficios": "Como este oleo especifico ajuda emocionalmente",
+      "compatibilidade": 95
     }
-    
+  ]
+}`;
+
+    const response = await anthropic.messages.create({
+      model: "claude-3-haiku-20240307",
+      max_tokens: 1000,
+      temperature: 0.3,
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    const content = response.content[0];
+    if (content.type !== 'text') {
+      throw new Error('Resposta inesperada da IA');
+    }
+
+    const resultado = JSON.parse(content.text);
+    return res.status(200).json(resultado);
+
   } catch (error) {
-    // FALLBACK FINAL
-    return res.status(200).json({
-      tipo: "psicoaromaterapia", 
-      sentimento_detectado: "Suporte emocional",
-      sugestoes: [
-        {
-          slug: "balance",
-          nome: "Balance",
-          beneficios: "Auxilia no equilíbrio emocional",
-          compatibilidade: 80
-        }
-      ]
+    console.error('Erro:', error);
+    return res.status(500).json({ 
+      error: 'Erro interno do servidor',
+      details: error.message
     });
   }
 }
