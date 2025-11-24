@@ -1,3 +1,4 @@
+
 export default async function handler(req, res) {
   // CORS Headers - permitir domínio específico
   res.setHeader('Access-Control-Allow-Credentials', true);
@@ -88,7 +89,9 @@ OLEOS PARA PSICOAROMATERAPIA:
 ${oleos.map((oleo, i) => `
 ${i + 1}. ${oleo.nome} (${oleo.slug}): ${oleo.psico_texto_principal}
 Emoções: ${JSON.stringify(oleo.psico_emocoes_negativas)}
-`).join('\n')}`;
+`).join('\n')
+
+}`;
 
     const response = await anthropic.messages.create({
       model: "claude-3-haiku-20240307",
