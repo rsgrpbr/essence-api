@@ -44,28 +44,31 @@ export default async function handler(req, res) {
 
 SITUACAO: O usuario se sente "${sentimento}"
 
-IMPORTANTE - ANALISE PRIMEIRO:
-1. Se a mensagem contem APENAS sintomas fisicos (dor de cabeca, febre, gripe, dor nas costas, etc.) SEM mencionar emocoes, responda:
+PRIMEIRA ANALISE - DETECCAO DE TIPO:
+Se a mensagem menciona APENAS sintomas fisicos ou dores corporais SEM contexto emocional, como:
+- "dor de cabeca", "enxaqueca", "cefaleia"
+- "dor nas costas", "dor muscular", "dor no pescoco"
+- "febre", "gripe", "resfriado", "tosse"
+- "dor de barriga", "nausea", "digestao"
+- "insonia" (apenas o sintoma, sem mencionar ansiedade/estresse)
+
+RESPONDA APENAS:
 {
   "tipo": "sintoma_fisico",
-  "mensagem": "Para sintomas físicos, recomendamos consultar nosso guia de óleos por categoria. A psicoaromaterapia foca em bem-estar emocional e mental.",
-  "sugestao_busca": "Experimente buscar por 'dor', 'inflamação' ou 'sistema imunológico' em nossa seção de óleos."
+  "mensagem": "Para sintomas físicos, recomendamos buscar na seção 'Óleos' do app por categorias como dor, sistema imunológico ou digestão.",
+  "sugestao": "A psicoaromaterapia foca em bem-estar emocional. Para sintomas físicos, explore nossa biblioteca de óleos."
 }
 
-2. Se menciona emocoes OU sentimentos psicologicos (mesmo junto com sintomas), continue a analise normal.
+SEGUNDA ANALISE - PSICOAROMATERAPIA:
+Se menciona emocoes, sentimentos, estados mentais OU sintomas fisicos COM contexto emocional, como:
+- "ansioso", "estressado", "triste", "nervoso"
+- "dor de cabeca por estresse", "insonia por ansiedade"
+- "me sinto...", "estou preocupado", "tenho medo"
 
-OLEOS DISPONIVEIS:
-${oleos.map((oleo, i) => `
-${i + 1}. ${oleo.nome} (slug: ${oleo.slug}):
-   Descricao: ${oleo.psico_texto_principal}
-   Emocoes que trata: ${JSON.stringify(oleo.psico_emocoes_negativas)}
-   Propriedades positivas: ${JSON.stringify(oleo.psico_propriedades_positivas)}
-`).join('\n')}
-
-PARA ANALISE EMOCIONAL, RESPONDA:
+RESPONDA:
 {
   "tipo": "psicoaromaterapia",
-  "sentimento_detectado": "categoria emocional",
+  "sentimento_detectado": "categoria emocional detectada",
   "sugestoes": [
     {
       "slug": "slug-exato-do-oleo",
@@ -74,7 +77,17 @@ PARA ANALISE EMOCIONAL, RESPONDA:
       "compatibilidade": 95
     }
   ]
-}`;
+}
+
+OLEOS DISPONIVEIS PARA PSICOAROMATERAPIA:
+${oleos.map((oleo, i) => `
+${i + 1}. ${oleo.nome} (slug: ${oleo.slug}):
+   Descricao: ${oleo.psico_texto_principal}
+   Emocoes que trata: ${JSON.stringify(oleo.psico_emocoes_negativas)}
+   Propriedades positivas: ${JSON.stringify(oleo.psico_propriedades_positivas)}
+`).join('\n')}
+
+IMPORTANTE: Se APENAS sintoma fisico sem emocao = tipo "sintoma_fisico". Se tem emocao = tipo "psicoaromaterapia".`;
 
     const response = await anthropic.messages.create({
       model: "claude-3-haiku-20240307",
