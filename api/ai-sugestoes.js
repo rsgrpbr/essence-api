@@ -1,17 +1,20 @@
-import { Anthropic } from '@anthropic-ai/sdk';
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
-
 export default async function handler(req, res) {
+  // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
+  // Handle preflight
   if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
+    return res.status(200).end();
+  }
+
+  // Handle GET for testing
+  if (req.method === 'GET') {
+    return res.status(200).json({ 
+      message: 'API funcionando! Use POST para consultas.',
+      status: 'online'
+    });
   }
 
   if (req.method !== 'POST') {
@@ -19,6 +22,12 @@ export default async function handler(req, res) {
   }
 
   try {
+    const { Anthropic } = await import('@anthropic-ai/sdk');
+    
+    const anthropic = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+    });
+
     const { sentimento, oleos } = req.body;
 
     if (!sentimento?.trim()) {
@@ -84,3 +93,16 @@ IMPORTANTE: Use APENAS oleos da lista. Use slugs EXATOS. Maximo 3 sugestoes.`;
     });
   }
 }
+```
+
+5. **Commit changes:** "Fix API endpoint"
+
+---
+
+## ⏳ **AGUARDAR REDEPLOY AUTOMÁTICO**
+
+O Vercel vai fazer redeploy automático. Aguarde 1-2 minutos.
+
+**Depois teste:**
+```
+https://essence-api-xrz6.vercel.app/api/ai-sugestoes
