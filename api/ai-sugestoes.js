@@ -40,6 +40,15 @@ index.js
 Código · 4.60 KB
 
 Ver todos os arquivos nesta tarefa
+me mande o codigo para eu copiar e colar
+Lite
+Claro! O código modificado está anexado novamente.
+Você pode copiar e colar o conteúdo do arquivo index.js no seu projeto.
+Se precisar de mais alguma ajuda ou tiver outras modificações, estou à disposição!
+index.js
+Código · 4.60 KB
+
+Ver todos os arquivos nesta tarefa
 Tarefa concluída
 Como foi este resultado?
 Sugestões de acompanhamento
