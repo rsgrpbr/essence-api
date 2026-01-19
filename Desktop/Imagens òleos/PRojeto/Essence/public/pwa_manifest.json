@@ -1,0 +1,27 @@
+{
+  "name": "Essence App - Óleos Essenciais",
+  "short_name": "Essence",
+  "description": "Informações e usos tradicionais de óleos essenciais para elevar seu bem-estar e aprimorar sua rotina de autocuidado..",
+  "start_url": "https://www.essenceapp.com.br/",
+  "display": "standalone",
+  "background_color": "#faf9f7",
+  "theme_color": "#3d7a6f",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512x512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
