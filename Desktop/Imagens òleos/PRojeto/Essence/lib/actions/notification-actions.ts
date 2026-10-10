@@ -3,6 +3,18 @@
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { uploadImage, deleteImage } from "@/lib/supabase/storage"
+import { isAdminToken } from "@/lib/auth/require-admin"
+
+async function assertAdmin(accessToken?: string | null) {
+  if (!(await isAdminToken(accessToken))) {
+    throw new Error("Não autorizado")
+  }
+}
+
+// Caminho do arquivo dentro do bucket a partir da URL pública
+function storagePathFromUrl(url: string) {
+  return decodeURIComponent(url.split("?")[0].split("/").pop() || url)
+}
 
 export type NotificationModal = {
   id: string
@@ -99,6 +111,8 @@ export async function createNotification(formData: FormData): Promise<Notificati
 
     console.log("[v0] Step 3: Input validation passed")
 
+    await assertAdmin(accessToken)
+
     const supabase = await createClient()
 
     if (accessToken) {
@@ -189,6 +203,7 @@ export async function createNotification(formData: FormData): Promise<Notificati
  */
 export async function updateNotification(id: string, formData: FormData): Promise<NotificationModal> {
   try {
+    await assertAdmin(formData.get("access_token") as string | null)
     const { createAdminClient } = await import("@/lib/supabase/admin")
     const adminClient = createAdminClient()
 
@@ -206,18 +221,25 @@ export async function updateNotification(id: string, formData: FormData): Promis
     // Se tem nova imagem, fazer upload
     if (imageFile && imageFile.size > 0) {
       console.log("📤 [ACTION] Upload nova imagem...")
-      const uploadResult = await uploadImage(imageFile, "modal-images")
+      const fileExt = imageFile.name.split(".").pop()
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
+      const { error: uploadError } = await adminClient.storage
+        .from("modal-images")
+        .upload(fileName, new Uint8Array(await imageFile.arrayBuffer()), {
+          contentType: imageFile.type,
+          upsert: false,
+        })
 
-      if (!uploadResult) {
-        throw new Error("Falha no upload da imagem")
+      if (uploadError) {
+        throw new Error("Falha no upload da imagem: " + uploadError.message)
       }
 
-      imageUrl = uploadResult
+      imageUrl = adminClient.storage.from("modal-images").getPublicUrl(fileName).data.publicUrl
 
       // Deletar imagem antiga
       if (oldImageUrl) {
         console.log("🗑️ [ACTION] Deletando imagem antiga...")
-        await deleteImage(oldImageUrl)
+        await adminClient.storage.from("modal-images").remove([storagePathFromUrl(oldImageUrl)])
       }
     }
 
@@ -255,8 +277,9 @@ export async function updateNotification(id: string, formData: FormData): Promis
  * @param isActive New active status
  * @returns Promise<void>
  */
-export async function toggleNotificationStatus(id: string, isActive: boolean): Promise<void> {
+export async function toggleNotificationStatus(id: string, isActive: boolean, accessToken: string): Promise<void> {
   try {
+    await assertAdmin(accessToken)
     const { createAdminClient } = await import("@/lib/supabase/admin")
     const adminClient = createAdminClient()
 
@@ -283,8 +306,9 @@ export async function toggleNotificationStatus(id: string, isActive: boolean): P
  * @param imageUrl URL of the image to delete
  * @returns Promise<void>
  */
-export async function deleteNotification(id: string, imageUrl: string): Promise<void> {
+export async function deleteNotification(id: string, imageUrl: string, accessToken: string): Promise<void> {
   try {
+    await assertAdmin(accessToken)
     const { createAdminClient } = await import("@/lib/supabase/admin")
     const adminClient = createAdminClient()
 
@@ -301,7 +325,7 @@ export async function deleteNotification(id: string, imageUrl: string): Promise<
     // Deletar imagem do storage
     if (imageUrl) {
       console.log("🗑️ [ACTION] Deletando imagem do storage...")
-      await deleteImage(imageUrl)
+      await adminClient.storage.from("modal-images").remove([storagePathFromUrl(imageUrl)])
     }
 
     console.log("✅ [ACTION] Notificação deletada")

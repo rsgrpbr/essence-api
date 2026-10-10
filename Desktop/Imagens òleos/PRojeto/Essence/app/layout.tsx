@@ -1,5 +1,5 @@
 import type React from "react"
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import Script from "next/script"
 import { Geist, Geist_Mono, Playfair_Display } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
@@ -23,9 +23,6 @@ export const metadata: Metadata = {
   // 1. Configuração do Web App Manifest
   manifest: "/pwa_manifest.json",
 
-  // 2. Cor do Tema (mude para a cor principal do seu app)
-  themeColor: "#faf9f7", // Sugestão de cor clara, ajuste conforme seu design
-
   // 3. Configurações Específicas para iOS
   appleWebApp: {
     capable: true,
@@ -40,6 +37,11 @@ export const metadata: Metadata = {
   },
 }
 // --- FIM DA ALTERAÇÃO: METADATA PWA ---
+
+// Cor do tema (no Next 14+ fica no export "viewport", não mais em "metadata")
+export const viewport: Viewport = {
+  themeColor: "#faf9f7",
+}
 
 export default async function RootLayout({
   children,

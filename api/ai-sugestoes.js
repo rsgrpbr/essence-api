@@ -140,7 +140,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ 
       message: 'API da Essence funcionando!',
       status: 'online',
-      version: '2.0-secured'
+      version: '2.1'
     });
   }
 
@@ -162,10 +162,32 @@ export default async function handler(req, res) {
       apiKey: process.env.ANTHROPIC_API_KEY,
     });
 
+    // claude-3-haiku-20240307 foi aposentado pela Anthropic em 20/04/2026.
+    // O modelo agora é configurável pela variável ANTHROPIC_MODEL.
+    const MODEL = process.env.ANTHROPIC_MODEL || 'claude-haiku-5-5';
+
+    // Os modelos atuais podem devolver blocos de "thinking" antes do texto,
+    // então pegamos sempre o primeiro bloco de texto da resposta.
+    const extrairTexto = (resp) =>
+      (resp.content.find((b) => b.type === 'text')?.text || '').trim();
+
+    // Os modelos atuais às vezes envolvem o JSON em ```json ... ```.
+    const extrairJSON = (texto) => {
+      const semCerca = texto.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+      try {
+        return JSON.parse(semCerca);
+      } catch {
+        const inicio = semCerca.indexOf('{');
+        const fim = semCerca.lastIndexOf('}');
+        if (inicio === -1 || fim <= inicio) throw new Error('Resposta da IA sem JSON');
+        return JSON.parse(semCerca.slice(inicio, fim + 1));
+      }
+    };
+
     const { sentimento, oleos } = req.body;
 
     // Validação de input (MELHORADA)
-    if (!sentimento?.trim()) {
+    if (typeof sentimento !== 'string' || !sentimento.trim()) {
       console.warn(`[AI-SUGESTOES] ❌ IP ${ip} - Sentimento vazio`);
       return res.status(400).json({ error: 'Sentimento obrigatório' });
     }
@@ -178,7 +200,7 @@ export default async function handler(req, res) {
       });
     }
 
-    if (!oleos || oleos.length === 0) {
+    if (!Array.isArray(oleos) || oleos.length === 0) {
       console.warn(`[AI-SUGESTOES] ❌ IP ${ip} - Lista de óleos vazia`);
       return res.status(400).json({ error: 'Lista de óleos obrigatória' });
     }
@@ -201,16 +223,16 @@ export default async function handler(req, res) {
     Caso contrário (se contiver emoções, sentimentos, estados psicológicos, ou uma mistura de físico e emocional), responda APENAS com a palavra: PSICOTERAPIA`;
 
     const classificationResponse = await anthropic.messages.create({
-      model: "claude-3-haiku-20240307",
-      max_tokens: 5,
-      temperature: 0.0,
+      model: MODEL,
+      max_tokens: 1024,
+      output_config: { effort: 'low' },
       messages: [{ role: "user", content: classificationPrompt }],
     });
 
-    const classificationText = classificationResponse.content[0].text.trim().toUpperCase();
+    const classificationText = extrairTexto(classificationResponse).toUpperCase();
     console.log(`[AI-SUGESTOES] Classificação: ${classificationText}`);
 
-    if (classificationText === 'FISICO') {
+    if (classificationText.startsWith('FISICO') || classificationText.startsWith('FÍSICO')) {
       console.log(`[AI-SUGESTOES] ✅ IP ${ip} - Sintoma físico detectado`);
       return res.status(200).json({
         tipo: "sintoma_fisico",
@@ -249,21 +271,26 @@ PARA ANÁLISE EMOCIONAL, RESPONDA:
       "compatibilidade": 95
     }
   ]
-}`;
+}
+
+Responda SOMENTE com o objeto JSON, sem texto antes ou depois e sem blocos de código.`;
 
     const response = await anthropic.messages.create({
-      model: "claude-3-haiku-20240307",
-      max_tokens: 1000,
-      temperature: 0.3,
+      model: MODEL,
+      max_tokens: 4096,
+      output_config: { effort: 'low' },
       messages: [{ role: "user", content: prompt }],
     });
 
-    const content = response.content[0];
-    if (content.type !== 'text') {
+    const texto = extrairTexto(response);
+    if (!texto) {
       throw new Error('Resposta inesperada da IA');
     }
 
-    const resultado = JSON.parse(content.text);
+    const resultado = extrairJSON(texto);
+    // Garante o formato que o app espera
+    resultado.tipo = 'psicoaromaterapia';
+    if (!Array.isArray(resultado.sugestoes)) resultado.sugestoes = [];
     
     console.log(`[AI-SUGESTOES] ✅ IP ${ip} - Resposta gerada com sucesso`);
     console.log(`[AI-SUGESTOES] Tokens usados: ${response.usage.input_tokens + response.usage.output_tokens}`);

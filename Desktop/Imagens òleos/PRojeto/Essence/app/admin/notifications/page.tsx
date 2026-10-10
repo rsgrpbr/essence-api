@@ -291,7 +291,10 @@ export default function AdminNotificationsPage() {
   const handleToggleStatus = async (notification: NotificationModal) => {
     startTransition(async () => {
       try {
-        await toggleNotificationStatus(notification.id, !notification.is_active)
+        const {
+          data: { session },
+        } = await getSupabaseClient().auth.getSession()
+        await toggleNotificationStatus(notification.id, !notification.is_active, session?.access_token ?? "")
         toast({
           title: "Sucesso",
           description: `Notificação ${!notification.is_active ? "ativada" : "desativada"}`,
@@ -312,7 +315,10 @@ export default function AdminNotificationsPage() {
 
     startTransition(async () => {
       try {
-        await deleteNotification(deleteTarget.id, deleteTarget.image_url)
+        const {
+          data: { session },
+        } = await getSupabaseClient().auth.getSession()
+        await deleteNotification(deleteTarget.id, deleteTarget.image_url, session?.access_token ?? "")
         toast({
           title: "Sucesso",
           description: "Notificação excluída com sucesso",

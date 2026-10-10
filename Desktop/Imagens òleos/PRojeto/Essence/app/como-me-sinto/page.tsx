@@ -362,11 +362,10 @@ export default function ComoMeSintoPage() {
           psico_emocoes_negativas: oleo.psico?.emocoesNegativas || "",
         }))
 
-      const response = await fetch("https://essence-api-xrz6.vercel.app/api/ai-sugestoes", {
+      const response = await fetch("/api/ai-sugestoes", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-API-Key": process.env.NEXT_PUBLIC_ESSENCE_API_SECRET!,
         },
         body: JSON.stringify({
           sentimento: texto,
