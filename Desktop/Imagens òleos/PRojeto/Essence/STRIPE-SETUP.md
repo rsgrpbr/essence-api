@@ -29,12 +29,12 @@ Para configurar no ambiente de produção da Vercel:
 
    **STRIPE_SECRET_KEY**
    ```
-   sk_test_51SRCp3AdGFZXrHuvNve3SBsjO5DXorOft5vSMN1TLjeY2vtFQiZ0b8VYI8EgpBqGiCV0ZjRuvq3EEHHArXjM0UlJ00v5JvzljhNEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+   sk_test_... (copie do painel do Stripe)
    ```
    
    **NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY**
    ```
-   pk_test_51SRCp3AdGFZXrHuvKY9dTdLBaxsim2CiiEvB9SOmQ49Iuux3Hif6pAcAwBKz5K6LrpRyVpq9g1zZwrHrgZj0ZE6k00njmkU1qy
+   pk_test_... (copie do painel do Stripe)
    ```
    
    **NEXT_PUBLIC_URL**

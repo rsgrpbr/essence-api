@@ -1,11 +1,15 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { isAdminToken, getBearerToken } from "@/lib/auth/require-admin"
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    if (!(await isAdminToken(getBearerToken(request)))) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
+    }
     const adminClient = createAdminClient()
     const formData = await request.formData()
-    const id = params.id
+    const { id } = await params
 
     console.log("[API] Updating notification:", id)
 
@@ -87,12 +91,15 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    if (!(await isAdminToken(getBearerToken(request)))) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 })
+    }
     const adminClient = createAdminClient()
     const { searchParams } = new URL(request.url)
     const imageUrl = searchParams.get("image_url")
-    const id = params.id
+    const { id } = await params
 
     console.log("[API] Deleting notification:", id)
 

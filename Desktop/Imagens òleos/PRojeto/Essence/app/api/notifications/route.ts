@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { ADMIN_USER_ID } from "@/lib/auth/require-admin"
 
 export async function POST(request: NextRequest) {
   try {
@@ -45,6 +46,10 @@ export async function POST(request: NextRequest) {
     if (userError || !user) {
       console.error("[API] Step 4: Token validation failed", userError)
       return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 })
+    }
+
+    if (user.id !== ADMIN_USER_ID) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 403 })
     }
 
     console.log("[API] Step 4: Token validated, user:", user.id)
